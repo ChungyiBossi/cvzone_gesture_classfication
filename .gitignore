@@ -1,0 +1,6 @@
+*.jpg
+*.zip
+*.h5
+.DS_Store
+hfu_venv
+hfu_Dece.code-workspace
