@@ -4,7 +4,7 @@ import cvzone
 from keras.models import load_model
 from cvzone.HandTrackingModule import HandDetector # CVZONE 包好的 HandDetector
 
-camera = cv2.VideoCapture(0)
+camera = cv2.VideoCapture(1)
 model  = load_model('./model/keras_model.h5')
 labels = open('./model/labels.txt', 'r').readlines()
 detector = HandDetector(detectionCon=0.8, maxHands=1)
