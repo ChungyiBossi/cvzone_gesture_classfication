@@ -9,8 +9,10 @@
     win10: [虛擬環境資料夾路徑]\Scripts\activate.bat
     輸入指令後，Command Line 新的輸入行會出現(虛擬環境的名字)，代表你已經切換到乾淨新建立的虛擬環境了！
 
-3. pip 安裝 cvzone： pip install cvzone
-    此 pip 是跟著虛擬環境一起被創立的新套件管理者。
+3. pip 安裝 
+- cvzone： pip install cvzone
+     此 pip 是跟著虛擬環境一起被創立的新套件管理者。
+- opencv: pip install opencv-python
 
 4. pip 安裝 mediapipe: pip install mediapipe
     如果找不到『mediapipe』，可以先更新pip，更新完再安裝
@@ -30,3 +32,15 @@
 3. 使用這個模型：
     - pip install keras
     - pip install --upgrade tensorflow
+
+
+12/30
+1. 找到 FaceMesh的框框範圍，找對應的Mesh點（from 468 points）
+https://github.com/tensorflow/tfjs-models/blob/838611c02f51159afdd77469ce67f0e26b7bbb23/face-landmarks-detection/mesh_map.jpg
+- 上面：10
+- 下面：152
+- 左邊：234
+- 右邊：454
+
+2. 用函式『find_face_mesh_boundary』取得臉部範圍，包含boundary讓上半身可以被包含進來。
+3. 如果有取得臉部，把臉部的範圍存下來。

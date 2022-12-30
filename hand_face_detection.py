@@ -9,19 +9,15 @@ from cvzone.FaceMeshModule import FaceMeshDetector
 camera = cv2.VideoCapture(0)
 model  = load_model('./model/keras_model.h5')
 labels = open('./model/labels.txt', 'r').readlines()
-detector = HandDetector(detectionCon=0.8, maxHands=1)
+hand_detector = HandDetector(detectionCon=0.8, maxHands=1)
 face_detector = FaceMeshDetector(maxFaces=1)
 
 WIDTH = 1280
 HEIGHT = 720
+HAND_BIAS = 200
 camera.set(3, WIDTH)
 camera.set(4, HEIGHT)
-offset = 20
-count_down_time = 5 # sec
-image_size = 300
-
-
-def convert_to_white_background_img(image):  
+def convert_to_white_background_img(image, offset=20, image_size = 300):  
     #### 以下為把被辨識出手的部分切出來，放在白底上
     # cutted img include one-hand
     min_y = max(y-offset, 0)   # y-offset 小於零時，取零
@@ -63,7 +59,7 @@ def convert_to_white_background_img(image):
     white_background_img = (white_background_img / 127.5) - 1  
     return white_background_img
 
-def count_down(img):
+def count_down(img, count_down_time=5):
     count_down_start = time.time() # 倒數開始
     # 等拍照的迴圈
     while True:
@@ -87,40 +83,59 @@ def classify_gesture(image):
     most_possible_gesture = label.split()[-1]
     return most_possible_gesture, most_possible_one_prob
 
+def find_face_mesh_boundary(face_info, img_w=WIDTH, img_h=HEIGHT):
+    # - 上面：10 # - 下面：152 # - 左邊：234 # - 右邊：454
+    # boundary ~= margin
+    margin = 100
+    _, up_y = face_info[10]
+    _, down_y = face_info[152]
+    left_x, _ = face_info[234]
+    right_x, _ = face_info[454]
+    
+    face_x_min = max(left_x - margin, 0)
+    face_y_min = max(up_y - margin, 0)
+    face_x_max = min(right_x + margin, img_w)
+    face_y_max = min(down_y + margin, img_h)
+    return face_x_min, face_y_min, face_x_max, face_y_max
+
 while True:
-    ret, image = camera.read()
-    img_clean = image.copy()
-    hands, hands_image = detector.findHands(image)
-    if hands:
-        bbox = hands[0]['bbox']
-        x, y, w, h = bbox
+    success, image = camera.read()
+    if success:
+        img_clean = image.copy()
+        hands, hands_image = hand_detector.findHands(image)
+        if hands:
+            hand = hands[0]
+            x, y, w, h = hand['bbox']
 
-        # 取得手的中心點座標
-        center_x, center_y = hands[0]['center'] 
-        bias = 200
-        if bias < center_x < WIDTH - bias and \
-           bias < center_y < HEIGHT - bias :
-            
-            white_background_img = convert_to_white_background_img(hands_image)
-            gesture, prob = classify_gesture(white_background_img)
+            # 取得手的中心點座標
+            center_x, center_y = hand['center'] 
+            if HAND_BIAS < center_x < WIDTH - HAND_BIAS and \
+               HAND_BIAS < center_y < HEIGHT - HAND_BIAS :
+                white_background_img = convert_to_white_background_img(hands_image)
+                gesture, prob = classify_gesture(white_background_img)
+                
+                if prob > 80:
+                    cvzone.putTextRect(img_clean, f"{gesture}-{prob}%", (x,y-50))
+                    if gesture == 'A':
+                        count_down(img_clean)  # 開始倒數，把倒數時間放在畫面上。
+                        # 辨識臉，重新讀一次camera的圖像
+                        success, img_clean = camera.read()
+                        if success:
+                            face_img, faces = face_detector.findFaceMesh(img_clean, draw=False)
+                            if faces:
+                                face = faces[0]
+                                face_x_min, face_y_min, face_x_max, face_y_max = find_face_mesh_boundary(face)
+                                face_img = face_img[
+                                    face_y_min:face_y_max, 
+                                    face_x_min:face_x_max
+                                ]
+                                cv2.imwrite(f"./photo/{time.time()}.jpg", face_img)
+                                cv2.waitKey(1000)
 
-            if prob > 80:
-                cvzone.putTextRect(img_clean, f"{gesture}-{prob}%", (x,y-50))
-                if gesture == 'A':
-                    count_down(img_clean)  # 開始倒數，把倒數時間放在畫面上。
-                    # 辨識臉，重新讀一次camera的圖像
-                    success, img_clean = camera.read()
-                    if success:
-                        face_img, faces = face_detector.findFaceMesh(img_clean, draw=False)
-                        if faces:
-                            cv2.imwrite(f"./photo/{time.time()}.jpg", face_img)
-                            cv2.waitKey(1000)
-
-    cv2.imshow('Webcam Image', img_clean)
-
-    keyboard_input = cv2.waitKey(1)
-    if keyboard_input == ord('q'):
-        break
+        cv2.imshow('Webcam Image', img_clean)
+        keyboard_input = cv2.waitKey(1)
+        if keyboard_input == ord('q'):
+            break
 
 camera.release()
 cv2.destroyAllWindows()
